@@ -27,7 +27,18 @@ export class StaffService {
           serviceTypeCode: filters.serviceTypeCode,
         }),
       },
-      include: { citizen: true, serviceType: true },
+      include: {
+        citizen: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            verificationLevel: true,
+          },
+        },
+        serviceType: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
