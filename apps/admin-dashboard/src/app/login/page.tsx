@@ -29,15 +29,9 @@ export default function Login() {
 
   return (
     <main className="flex h-screen w-full bg-background overflow-hidden">
-      {/* Left panel: 25% width */}
       <section className="w-1/4 h-full bg-surface shadow-2xl z-10 flex flex-col justify-center px-8 xl:px-12 relative border-r border-text-secondary/10">
         <div className="absolute top-8 left-8 xl:left-12">
           {/* Logo Placeholder */}
-          <div className="h-10 w-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-            <span className="text-white font-bold text-xl leading-none tracking-tighter">
-              LP
-            </span>
-          </div>
         </div>
 
         <div className="w-full max-w-sm mx-auto">
@@ -73,20 +67,12 @@ export default function Login() {
             </div>
 
             <div className="space-y-2 group">
-              <div className="flex items-center justify-between">
-                <label
-                  className="text-sm font-semibold text-foreground"
-                  htmlFor="password"
-                >
-                  Password
-                </label>
-                <a
-                  href="#"
-                  className="text-xs font-medium text-primary hover:text-secondary transition-colors"
-                >
-                  Forgot?
-                </a>
-              </div>
+              <label
+                className="text-sm font-semibold text-foreground"
+                htmlFor="password"
+              >
+                Password
+              </label>
               <input
                 id="password"
                 type="password"
