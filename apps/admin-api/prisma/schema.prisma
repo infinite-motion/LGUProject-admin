@@ -4,7 +4,7 @@ datasource db {
 
 generator client {
   provider     = "prisma-client-js"
-  output       = "../generated/prisma"
+  moduleFormat = "cjs"
 }
 
 model SuperAdmin {
@@ -20,10 +20,10 @@ model SuperAdmin {
 
 model LguTenant {
   id           String    @id @default(uuid())
-  code         String    @unique // e.g., "taytay", "sanjuan" (matches the LGU code in tenant-api)
+  code         String    @unique // e.g., "taytay", "sanjuan"
   name         String
   level        String    // "province" | "city" | "municipality" | "barangay"
-  apiUrl       String?   // The endpoint where this LGU's tenant-api is hosted (for monitoring & configuration)
+  apiUrl       String?
   status       String    @default("active") // "active" | "suspended" | "maintenance"
   licenseKey   String?   @unique
   createdAt    DateTime  @default(now())
