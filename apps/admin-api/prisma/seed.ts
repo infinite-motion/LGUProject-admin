@@ -22,21 +22,26 @@ async function main() {
     return;
   }
 
+  // WIPE DATABASE CLEAN
+  console.log('Wiping all existing superadmins for a clean slate...');
+  await prisma.superAdmin.deleteMany();
+
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   const superAdmin = await prisma.superAdmin.upsert({
     where: { email: adminEmail },
     update: {
       passwordHash,
-      fullName: 'Initial SuperAdmin',
+      fullName: 'Infinite Motion Xpress Admin',
       role: 'ROOT_SUPERADMIN',
+      status: 'ACTIVE',
     },
     create: {
       email: adminEmail,
       passwordHash,
-      fullName: 'Initial SuperAdmin',
+      fullName: 'Infinite Motion Xpress Admin',
       role: 'ROOT_SUPERADMIN',
-      status: 'active',
+      status: 'ACTIVE',
     },
   });
 
