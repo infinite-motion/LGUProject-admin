@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ListApplicationsDto } from './dto/list-applications.dto';
-import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
+import { ListApplicationsInput } from './dto/list-applications.input';
+import { UpdateApplicationStatusInput } from './dto/update-application-status.input';
 
 interface RequestUser {
   userId: string;
@@ -17,7 +17,7 @@ interface RequestUser {
 export class StaffService {
   constructor(private prisma: PrismaService) {}
 
-  async listApplications(user: RequestUser, filters: ListApplicationsDto) {
+  async listApplications(user: RequestUser, filters: ListApplicationsInput) {
     return this.prisma.applicationCase.findMany({
       where: {
         orgCode: user.orgCode,
@@ -46,7 +46,7 @@ export class StaffService {
   async updateStatus(
     user: RequestUser,
     caseId: string,
-    dto: UpdateApplicationStatusDto,
+    dto: UpdateApplicationStatusInput,
   ) {
     const application = await this.prisma.applicationCase.findUnique({
       where: { id: caseId },
@@ -65,6 +65,18 @@ export class StaffService {
     return this.prisma.applicationCase.update({
       where: { id: caseId },
       data: { status: dto.status },
+      include: {
+        citizen: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            verificationLevel: true,
+          },
+        },
+        serviceType: true,
+      },
     });
   }
 }

@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { GqlExecutionContext } from '@nestjs/graphql';
 import { AuthGuard } from '@nestjs/passport';
 import { PrismaService } from '../../../prisma/prisma.service';
 
@@ -15,16 +16,21 @@ interface JwtUser {
 }
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
+export class GqlAuthGuard extends AuthGuard('jwt') {
   constructor(private prisma: PrismaService) {
     super();
+  }
+
+  getRequest(context: ExecutionContext) {
+    const ctx = GqlExecutionContext.create(context);
+    return ctx.getContext().req;
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const passed = (await super.canActivate(context)) as boolean;
     if (!passed) return false;
 
-    const req = context.switchToHttp().getRequest<{ user: JwtUser }>();
+    const req = this.getRequest(context) as { user: JwtUser };
     const user = await this.prisma.staffUser.findUnique({
       where: { id: req.user.userId },
     });
