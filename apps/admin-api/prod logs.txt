@@ -1,0 +1,46 @@
+2026-07-17T07:21:17.565978782Z ==> Cloning from https://github.com/infinite-motion/LGUProject-admin
+2026-07-17T07:21:18.474493838Z ==> Checking out commit 566aacc9db7c38f7f75e7ece034f5f983e50663a in branch prod
+2026-07-17T07:21:19.639733436Z ==> Using Node.js version 24.14.1 (default)
+2026-07-17T07:21:19.639751207Z ==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+2026-07-17T07:21:19.693365137Z ==> Running build command 'pnpm install && pnpm prisma generate && pnpm build'...
+2026-07-17T07:21:35.937586523Z Loaded Prisma config from prisma.config.ts.
+2026-07-17T07:21:35.937606564Z
+2026-07-17T07:21:36.020700896Z Prisma schema loaded from prisma/schema.prisma.
+2026-07-17T07:21:36.150371672Z
+2026-07-17T07:21:36.150398163Z ✔ Generated Prisma Client (v7.8.0) to ./../../node_modules/.pnpm/@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.3_@types+react@19.2.17__@types+_a75360e9172bd2e651a09997de547b1a/node_modules/@prisma/client in 90ms
+2026-07-17T07:21:36.150405913Z
+2026-07-17T07:21:36.150414073Z Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+2026-07-17T07:21:36.150420203Z
+2026-07-17T07:21:36.150426083Z
+2026-07-17T07:21:36.544030134Z
+2026-07-17T07:21:36.544064215Z > admin-api@0.0.1 build /opt/render/project/src/apps/admin-api
+2026-07-17T07:21:36.544071975Z > nest build
+2026-07-17T07:21:36.544085335Z
+2026-07-17T07:21:41.076734221Z ==> Uploading build...
+2026-07-17T07:21:55.189867643Z ==> Uploaded in 8.4s. Compression took 5.7s
+2026-07-17T07:21:55.245782115Z ==> Build successful 🎉
+2026-07-17T07:21:59.019682388Z ==> Deploying...
+2026-07-17T07:21:59.218552355Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-07-17T07:22:27.073524327Z ==> Running 'pnpm start:prod'
+2026-07-17T07:22:30.771413803Z
+2026-07-17T07:22:30.771443483Z > admin-api@0.0.1 start:prod /opt/render/project/src/apps/admin-api
+2026-07-17T07:22:30.771464984Z > node dist/main
+2026-07-17T07:22:30.771468024Z
+2026-07-17T07:22:30.973248324Z node:internal/modules/cjs/loader:1459
+2026-07-17T07:22:30.973272165Z   throw err;
+2026-07-17T07:22:30.973275795Z   ^
+2026-07-17T07:22:30.973278975Z
+2026-07-17T07:22:30.973282635Z Error: Cannot find module '/opt/render/project/src/apps/admin-api/dist/main'
+2026-07-17T07:22:30.973285965Z     at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+2026-07-17T07:22:30.973289155Z     at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+2026-07-17T07:22:30.973292466Z     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+2026-07-17T07:22:30.973295835Z     at Module._load (node:internal/modules/cjs/loader:1242:25)
+2026-07-17T07:22:30.973298806Z     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+2026-07-17T07:22:30.973302296Z     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+2026-07-17T07:22:30.973305756Z     at node:internal/main/run_main_module:33:47 {
+2026-07-17T07:22:30.973309266Z   code: 'MODULE_NOT_FOUND',
+2026-07-17T07:22:30.973312976Z   requireStack: []
+2026-07-17T07:22:30.973316236Z }
+2026-07-17T07:22:30.973318586Z
+2026-07-17T07:22:30.973321436Z Node.js v24.14.1
+2026-07-17T07:22:31.07633331Z  ELIFECYCLE  Command failed with exit code 1.
