@@ -7,12 +7,24 @@ generator client {
   moduleFormat = "cjs"
 }
 
+enum AdminRole {
+  ROOT_SUPERADMIN
+  ADMIN
+}
+
 model SuperAdmin {
   id           String    @id @default(uuid())
   email        String    @unique
   fullName     String
   passwordHash String
+  
+  role         AdminRole @default(ADMIN)
   status       String    @default("active") // "active" | "suspended"
+  
+  appointedById String?
+  appointedBy   SuperAdmin?  @relation("AdminAppointee", fields: [appointedById], references: [id])
+  appointees    SuperAdmin[] @relation("AdminAppointee")
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   auditLogs    SuperAdminAuditLog[]

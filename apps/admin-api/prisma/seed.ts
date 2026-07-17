@@ -17,7 +17,7 @@ async function main() {
 
   if (!adminEmail || !adminPassword) {
     console.warn(
-      '⚠️ Warning: INITIAL_SUPERADMIN_EMAIL or INITIAL_SUPERADMIN_PASSWORD is not set in .env. Skipping SuperAdmin seeding.',
+      'Warning: INITIAL_SUPERADMIN_EMAIL or INITIAL_SUPERADMIN_PASSWORD is not set in .env. Skipping SuperAdmin seeding.',
     );
     return;
   }
@@ -26,16 +26,21 @@ async function main() {
 
   const superAdmin = await prisma.superAdmin.upsert({
     where: { email: adminEmail },
-    update: {}, // Don't override the password if the admin already exists and was modified
+    update: {
+      passwordHash,
+      fullName: 'Initial SuperAdmin',
+      role: 'ROOT_SUPERADMIN',
+    },
     create: {
       email: adminEmail,
-      fullName: 'System Bootstrap Admin',
       passwordHash,
+      fullName: 'Initial SuperAdmin',
+      role: 'ROOT_SUPERADMIN',
       status: 'active',
     },
   });
 
-  console.log(`✅ SuperAdmin seeded successfully: ${superAdmin.email}`);
+  console.log(`SuperAdmin seeded successfully: ${superAdmin.email}`);
 }
 
 main()
