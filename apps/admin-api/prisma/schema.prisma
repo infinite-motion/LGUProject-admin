@@ -24,17 +24,12 @@ model SuperAdmin {
   id           String    @id @default(uuid())
   email        String    @unique
   fullName     String
-  
-  // Password is optional because newly invited admins won't have one until they accept the invite
   passwordHash String?
-  
   role         AdminRole @default(ADMIN)
   status       AdminStatus @default(PENDING_APPROVAL)
-  
-  // Invite Flow
   inviteToken     String?   @unique
   inviteExpiresAt DateTime?
-  
+
   appointedById String?
   appointedBy   SuperAdmin?  @relation("AdminAppointee", fields: [appointedById], references: [id])
   appointees    SuperAdmin[] @relation("AdminAppointee")

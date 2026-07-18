@@ -28,7 +28,6 @@ export default function AdministratorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Invite Modal State
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     fullName: "",
@@ -53,8 +52,6 @@ export default function AdministratorsPage() {
       adminService
         .getAdmins()
         .then((data) => {
-          // Only update if data actually changed to avoid unnecessary re-renders
-          // Using JSON stringify is a quick way to deep compare the array
           setAdmins((prev) =>
             JSON.stringify(prev) !== JSON.stringify(data) ? data : prev,
           );
@@ -85,14 +82,39 @@ export default function AdministratorsPage() {
       // The API returns the created admin which includes the inviteToken
       const newAdmin: any = await adminService.inviteAdmin(inviteForm);
       setAdmins((prev) => [...prev, newAdmin]);
-      setInviteSuccessLink(
-        `${window.location.origin}/invite?token=${newAdmin.inviteToken}`,
-      );
+      if (newAdmin.status === "PENDING_APPROVAL") {
+        setInviteSuccessLink("PENDING");
+      } else {
+        setInviteSuccessLink(
+          `${window.location.origin}/invite?token=${newAdmin.inviteToken}`,
+        );
+      }
       setIsCopied(false);
     } catch (err) {
       alert("Failed to invite administrator");
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleApproveAdmin = async (id: string) => {
+    try {
+      const updatedAdmin: any = await adminService.approveAdmin(id);
+      setAdmins((prev) => prev.map((a) => (a.id === id ? updatedAdmin : a)));
+      setInviteForm({ fullName: updatedAdmin.fullName, email: updatedAdmin.email, role: updatedAdmin.role });
+      setInviteSuccessLink(`${window.location.origin}/invite?token=${updatedAdmin.inviteToken}`);
+      setIsInviteModalOpen(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to approve administrator");
+    }
+  };
+
+  const handleRejectPendingAdmin = async (id: string) => {
+    try {
+      const updatedAdmin = await adminService.rejectPendingAdmin(id);
+      setAdmins((prev) => prev.map((a) => (a.id === id ? updatedAdmin : a)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to reject administrator");
     }
   };
 
@@ -322,18 +344,22 @@ export default function AdministratorsPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                      {admin.status === "ACTIVE" ? new Date(admin.createdAt).toLocaleDateString() : "—"}
+                      {admin.status === "ACTIVE"
+                        ? new Date(admin.createdAt).toLocaleDateString()
+                        : "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {admin.status === "PENDING_APPROVAL" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
+                            onClick={() => handleApproveAdmin(admin.id)}
                             className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200 transition-colors"
                             title="Approve"
                           >
                             <Check className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleRejectPendingAdmin(admin.id)}
                             className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
                             title="Reject"
                           >
@@ -345,9 +371,9 @@ export default function AdministratorsPage() {
                           <button className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded">
                             <Mail className="w-3 h-3 mr-1" /> Resend
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleDeleteAdminClick(admin.id)}
-                            className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors" 
+                            className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
                             title="Cancel Invite"
                           >
                             <X className="w-4 h-4" />
@@ -421,35 +447,38 @@ export default function AdministratorsPage() {
                     <Check className="h-6 w-6 text-emerald-600" />
                   </div>
                   <h3 className="text-lg font-medium text-foreground mb-2">
-                    Invite Created!
+                    {inviteSuccessLink === "PENDING" ? "Invite Pending Approval!" : "Invite Created!"}
                   </h3>
                   <p className="text-sm text-text-secondary mb-4">
-                    Copy the link below and send it to the administrator so they
-                    can set their password.
+                    {inviteSuccessLink === "PENDING" 
+                      ? "The invitation has been sent for superadmin approval. Once approved, the token can be shared."
+                      : "Copy the link below and send it to the administrator so they can set their password."}
                   </p>
-                  <div className="bg-background border border-text-secondary/20 p-3 rounded-lg flex items-center justify-between">
-                    <code className="text-xs text-primary truncate max-w-[250px]">{inviteSuccessLink}</code>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(inviteSuccessLink);
-                        setIsCopied(true);
-                        setTimeout(() => setIsCopied(false), 2000);
-                      }}
-                      className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-3 py-1.5 rounded hover:bg-primary/20 transition-all font-medium"
-                    >
-                      {isCopied ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  {inviteSuccessLink !== "PENDING" && (
+                    <div className="bg-background border border-text-secondary/20 p-3 rounded-lg flex items-center justify-between mb-6">
+                      <code className="text-xs text-primary truncate max-w-[250px]">{inviteSuccessLink}</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(inviteSuccessLink);
+                          setIsCopied(true);
+                          setTimeout(() => setIsCopied(false), 2000);
+                        }}
+                        className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-3 py-1.5 rounded hover:bg-primary/20 transition-all font-medium"
+                      >
+                        {isCopied ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => setIsInviteModalOpen(false)}
                     className="w-full mt-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium"
@@ -474,7 +503,7 @@ export default function AdministratorsPage() {
                           fullName: e.target.value,
                         })
                       }
-                      placeholder="e.g. John Doe"
+                      placeholder="e.g. Juan Dela Cruz"
                     />
                   </div>
                   <div>
@@ -489,7 +518,7 @@ export default function AdministratorsPage() {
                       onChange={(e) =>
                         setInviteForm({ ...inviteForm, email: e.target.value })
                       }
-                      placeholder="john@lgu.gov"
+                      placeholder="juan@lgu.gov"
                     />
                   </div>
                   <div>
@@ -530,7 +559,6 @@ export default function AdministratorsPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmState.isOpen}
         title="Remove Administrator"

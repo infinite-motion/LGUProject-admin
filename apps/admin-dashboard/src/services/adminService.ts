@@ -47,4 +47,16 @@ export const adminService = {
       method: "DELETE",
     });
   },
+
+  approveAdmin: async (id: string): Promise<AdminUser> => {
+    return fetchApi(`/admins/${id}/approve`, {
+      method: "POST",
+    });
+  },
+
+  rejectPendingAdmin: async (id: string): Promise<AdminUser> => {
+    return fetchApi(`/admins/${id}/reject`, {
+      method: "POST",
+    });
+  },
 };

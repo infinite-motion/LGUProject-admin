@@ -32,29 +32,25 @@ export class AdminsService {
     }));
   }
 
-  async inviteAdmin(data: { email: string; fullName: string }) {
-    // Temp: Find a root admin to be the appointer
-    const rootAdmin = await this.prisma.superAdmin.findFirst({
-      where: { role: 'ROOT_SUPERADMIN' }
-    });
-
-    // Generate random string for invite token (Node.js crypto)
+  async inviteAdmin(data: { email: string; fullName: string }, inviter: any) {
     const crypto = require('crypto');
     const inviteToken = crypto.randomBytes(32).toString('hex');
     
-    // Expires in 7 days
     const inviteExpiresAt = new Date();
     inviteExpiresAt.setDate(inviteExpiresAt.getDate() + 7);
+
+    // If inviter is ROOT_SUPERADMIN, status is INVITED, otherwise PENDING_APPROVAL
+    const status = inviter && inviter.role === 'ROOT_SUPERADMIN' ? 'INVITED' : 'PENDING_APPROVAL';
 
     const newAdmin = await this.prisma.superAdmin.create({
       data: {
         email: data.email,
         fullName: data.fullName,
         role: 'ADMIN',
-        status: 'INVITED',
+        status,
         inviteToken,
         inviteExpiresAt,
-        appointedById: rootAdmin?.id,
+        appointedById: inviter?.sub,
       },
       include: {
         appointedBy: {
@@ -80,6 +76,10 @@ export class AdminsService {
 
     if (admin.inviteExpiresAt && admin.inviteExpiresAt < new Date()) {
       throw new Error('Invite token has expired');
+    }
+
+    if (admin.status === 'PENDING_APPROVAL') {
+      throw new Error('Invite is still pending approval');
     }
 
     const bcrypt = require('bcryptjs');
@@ -115,7 +115,66 @@ export class AdminsService {
     });
   }
 
-  async deleteAdmin(id: string) {
+  async approveAdmin(id: string, approver: any) {
+    if (approver?.role !== 'ROOT_SUPERADMIN') {
+      throw new Error('Only ROOT_SUPERADMIN can approve invites');
+    }
+
+    const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
+    if (!admin) throw new Error('Administrator not found');
+
+    if (admin.status !== 'PENDING_APPROVAL') {
+      throw new Error('Admin is not pending approval');
+    }
+
+    const updatedAdmin = await this.prisma.superAdmin.update({
+      where: { id },
+      data: {
+        status: 'INVITED',
+        // Optional: you could update appointedById to the approver's ID or keep the original inviter
+      },
+      include: {
+        appointedBy: { select: { fullName: true } }
+      }
+    });
+
+    return {
+      ...updatedAdmin,
+      appointedByName: updatedAdmin.appointedBy?.fullName || null
+    };
+  }
+
+  async rejectPendingAdmin(id: string, approver: any) {
+    if (approver?.role !== 'ROOT_SUPERADMIN') {
+      throw new Error('Only ROOT_SUPERADMIN can reject invites');
+    }
+
+    const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
+    if (!admin) throw new Error('Administrator not found');
+
+    if (admin.status !== 'PENDING_APPROVAL') {
+      throw new Error('Admin is not pending approval');
+    }
+
+    const updatedAdmin = await this.prisma.superAdmin.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        inviteToken: null,
+        inviteExpiresAt: null,
+      },
+      include: {
+        appointedBy: { select: { fullName: true } }
+      }
+    });
+
+    return {
+      ...updatedAdmin,
+      appointedByName: updatedAdmin.appointedBy?.fullName || null
+    };
+  }
+
+  async deleteAdmin(id: string, user: any) {
     const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
     if (!admin) throw new Error('Administrator not found');
     
