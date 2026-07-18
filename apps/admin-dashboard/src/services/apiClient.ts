@@ -10,6 +10,13 @@ export async function fetchApi<T>(
     "Content-Type": "application/json",
   };
 
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      defaultHeaders["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
     credentials: "include",
@@ -20,6 +27,15 @@ export async function fetchApi<T>(
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        if (!window.location.pathname.includes("/login")) {
+          window.location.href = "/login";
+        }
+      }
+    }
+
     let errorMessage = `API Error: ${response.statusText}`;
     try {
       const errorData = await response.json();
@@ -29,11 +45,21 @@ export async function fetchApi<T>(
   }
 
   if (response.status === 204) {
+    if (endpoint === "/auth/logout" && typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+    }
     return {} as T;
   }
 
   try {
-    return (await response.json()) as T;
+    const data = await response.json();
+    if (endpoint === "/auth/login" && data.access_token && typeof window !== "undefined") {
+      localStorage.setItem("access_token", data.access_token);
+    }
+    if (endpoint === "/auth/logout" && typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+    }
+    return data as T;
   } catch (e) {
     return {} as T;
   }

@@ -10,7 +10,8 @@ import {
   LogOut, 
   Menu,
   Building2,
-  ShieldCheck
+  ShieldCheck,
+  Activity
 } from "lucide-react";
 import { authService } from "@/services/auth";
 
@@ -36,7 +37,7 @@ export default function DashboardLayout({
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Tenants (LGUs)", href: "/dashboard/tenants", icon: Building2 },
     { name: "Administrators", href: "/dashboard/administrators", icon: ShieldCheck },
-    { name: "Audit Logs", href: "/dashboard/audit", icon: Users },
+    { name: "Audit Logs", href: "/dashboard/audit", icon: Activity },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
