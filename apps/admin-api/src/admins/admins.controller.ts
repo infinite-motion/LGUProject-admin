@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Delete, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Delete, Param, UseGuards, Req } from '@nestjs/common';
 import { AdminsService } from './admins.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 @Controller('admins')
 export class AdminsController {
@@ -46,5 +46,11 @@ export class AdminsController {
   @Post(':id/reject')
   async rejectPendingAdmin(@Param('id') id: string, @Req() req: Request) {
     return this.adminsService.rejectPendingAdmin(id, req['user']);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put(':id')
+  async updateAdmin(@Param('id') id: string, @Body() body: any, @Req() req: Request) {
+    return this.adminsService.updateAdmin(id, body, req['user']);
   }
 }

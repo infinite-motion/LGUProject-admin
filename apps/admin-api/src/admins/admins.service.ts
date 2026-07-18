@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AdminsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogsService: AuditLogsService,
+    private mailService: MailService
+  ) {}
 
   async findAll() {
     const admins = await this.prisma.superAdmin.findMany({
@@ -59,6 +65,19 @@ export class AdminsService {
       }
     });
 
+    if (inviter && inviter.sub) {
+      await this.auditLogsService.logAction(
+        inviter.sub,
+        'invite_admin',
+        `Invited new administrator: ${data.email} (${data.fullName})`
+      );
+    }
+
+    // Only email directly if ROOT_SUPERADMIN invites
+    if (status === 'INVITED') {
+      await this.mailService.sendAdminInvite(data.email, inviteToken, data.fullName);
+    }
+
     return {
       ...newAdmin,
       appointedByName: newAdmin.appointedBy?.fullName || null
@@ -85,7 +104,7 @@ export class AdminsService {
     const bcrypt = require('bcryptjs');
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    return this.prisma.superAdmin.update({
+    const result = await this.prisma.superAdmin.update({
       where: { id: admin.id },
       data: {
         passwordHash,
@@ -94,6 +113,14 @@ export class AdminsService {
         inviteExpiresAt: null,
       }
     });
+
+    await this.auditLogsService.logAction(
+      admin.id,
+      'accept_invite',
+      `Administrator accepted invitation and completed setup`
+    );
+
+    return result;
   }
 
   async rejectInvite(data: { token: string }) {
@@ -105,7 +132,7 @@ export class AdminsService {
       throw new Error('Invalid or expired invite token');
     }
 
-    return this.prisma.superAdmin.update({
+    const result = await this.prisma.superAdmin.update({
       where: { id: admin.id },
       data: {
         status: 'REJECTED',
@@ -113,6 +140,14 @@ export class AdminsService {
         inviteExpiresAt: null,
       }
     });
+
+    await this.auditLogsService.logAction(
+      admin.id,
+      'reject_invite',
+      `Administrator rejected invitation`
+    );
+
+    return result;
   }
 
   async approveAdmin(id: string, approver: any) {
@@ -137,6 +172,17 @@ export class AdminsService {
         appointedBy: { select: { fullName: true } }
       }
     });
+
+    await this.auditLogsService.logAction(
+      approver.sub,
+      'approve_admin',
+      `Approved administrator: ${admin.email}`
+    );
+
+    // After approval, it's safe to send the email
+    if (admin.inviteToken) {
+      await this.mailService.sendAdminInvite(admin.email, admin.inviteToken, admin.fullName);
+    }
 
     return {
       ...updatedAdmin,
@@ -168,6 +214,12 @@ export class AdminsService {
       }
     });
 
+    await this.auditLogsService.logAction(
+      approver.sub,
+      'reject_admin',
+      `Rejected administrator request: ${admin.email}`
+    );
+
     return {
       ...updatedAdmin,
       appointedByName: updatedAdmin.appointedBy?.fullName || null
@@ -183,8 +235,69 @@ export class AdminsService {
       throw new Error('Cannot delete the root superadmin');
     }
 
-    return this.prisma.superAdmin.delete({
-      where: { id }
+    // Clean up foreign key relations first in a transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Delete all audit logs associated with this admin
+      await tx.superAdminAuditLog.deleteMany({
+        where: { actorId: id }
+      });
+
+      // 2. Set appointedById to null for any admins this person appointed
+      await tx.superAdmin.updateMany({
+        where: { appointedById: id },
+        data: { appointedById: null }
+      });
+
+      // 3. Delete the admin safely
+      return tx.superAdmin.delete({
+        where: { id }
+      });
     });
+
+    if (user && user.sub) {
+      await this.auditLogsService.logAction(
+        user.sub,
+        'delete_admin',
+        `Deleted administrator: ${admin.email} (${admin.fullName})`
+      );
+    }
+
+    return result;
+  }
+
+  async updateAdmin(id: string, data: { fullName?: string, password?: string }, user: any) {
+    if (user.sub !== id && user.role !== 'ROOT_SUPERADMIN') {
+      throw new Error('You do not have permission to edit this profile');
+    }
+
+    const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
+    if (!admin) throw new Error('Administrator not found');
+
+    const updateData: any = {};
+    if (data.fullName) updateData.fullName = data.fullName;
+    
+    if (data.password) {
+      const bcrypt = require('bcryptjs');
+      updateData.passwordHash = await bcrypt.hash(data.password, 10);
+    }
+
+    const result = await this.prisma.superAdmin.update({
+      where: { id },
+      data: updateData,
+    });
+
+    if (user && user.sub) {
+      await this.auditLogsService.logAction(
+        user.sub,
+        'update_admin',
+        `Updated administrator profile: ${admin.email}`
+      );
+    }
+
+    return {
+      id: result.id,
+      fullName: result.fullName,
+      email: result.email,
+    };
   }
 }
