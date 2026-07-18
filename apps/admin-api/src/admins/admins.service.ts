@@ -5,6 +5,9 @@ import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AdminsService {
+  // In-memory store to prevent spamming resend invites (adminId -> timestamp)
+  private inviteCooldowns = new Map<string, number>();
+
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
@@ -308,6 +311,15 @@ export class AdminsService {
     if (admin.status !== 'INVITED') {
       throw new Error('Can only resend invitations to administrators with INVITED status');
     }
+
+    // Guardrail: Enforce a 60-second cooldown per administrator to prevent spam
+    const now = Date.now();
+    const lastSent = this.inviteCooldowns.get(id);
+    if (lastSent && now - lastSent < 60000) {
+      const remainingSeconds = Math.ceil((60000 - (now - lastSent)) / 1000);
+      throw new Error(`Please wait ${remainingSeconds} seconds before resending.`);
+    }
+    this.inviteCooldowns.set(id, now);
 
     const crypto = require('crypto');
     const inviteToken = crypto.randomBytes(32).toString('hex');
