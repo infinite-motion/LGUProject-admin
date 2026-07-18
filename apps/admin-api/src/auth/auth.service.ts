@@ -15,13 +15,17 @@ export class AuthService {
       where: { email },
     });
 
-    if (!admin || !admin.passwordHash) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!admin) {
+      throw new UnauthorizedException("Account doesn't exist");
+    }
+
+    if (!admin.passwordHash) {
+      throw new UnauthorizedException("Account not fully set up");
     }
 
     const isMatch = await bcrypt.compare(pass, admin.passwordHash);
     if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Incorrect password");
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

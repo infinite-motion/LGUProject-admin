@@ -25,15 +25,16 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production', // Send over HTTPS only in production
       sameSite: 'lax',    // Mitigates CSRF attacks
       maxAge: 2 * 60 * 60 * 1000, // 2 hours expiry
+      path: '/',          // THIS IS CRITICAL! Allows cookie on ALL routes, not just /auth
     });
 
-    return { message: 'Logged in successfully', user: userData };
+    return { message: 'Logged in successfully', user: userData, access_token };
   }
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
     // Overwrite the cookie to invalidate it instantly on the client side
-    res.clearCookie('access_token');
+    res.clearCookie('access_token', { path: '/' });
     return { message: 'Logged out successfully' };
   }
 }

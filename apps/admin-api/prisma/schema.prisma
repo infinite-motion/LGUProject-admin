@@ -45,9 +45,9 @@ model LguTenant {
   name         String
   level        String    // "province" | "city" | "municipality" | "barangay"
   apiUrl       String?
-  status       String    @default("active") // "active" | "suspended" | "maintenance"
-  licenseKey   String?   @unique
-  createdAt    DateTime  @default(now())
+  status          String    @default("active") // "active" | "suspended" | "maintenance"
+  registrationKey String?   @unique
+  createdAt       DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
 

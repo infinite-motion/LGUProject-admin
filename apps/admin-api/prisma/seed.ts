@@ -30,7 +30,10 @@ async function main() {
 
   // WIPE DATABASE CLEAN
   if (process.env.NODE_ENV !== 'production') {
-    console.log('Wiping all existing superadmins for a clean slate...');
+    console.log('Wiping all existing data for a clean slate...');
+    await prisma.superAdminAuditLog.deleteMany();
+    await prisma.onboardingRequest.deleteMany();
+    await prisma.lguTenant.deleteMany();
     await prisma.superAdmin.deleteMany();
   } else {
     console.log('Production environment detected. Skipping database wipe.');
