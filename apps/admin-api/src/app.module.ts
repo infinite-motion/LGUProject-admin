@@ -7,6 +7,8 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AdminsModule } from './admins/admins.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { TenantsModule } from './tenants/tenants.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { AdminsModule } from './admins/admins.module';
     PrismaModule,
     AuthModule,
     AdminsModule,
+    AuditLogsModule,
+    TenantsModule,
   ],
   providers: [AppResolver, AppService],
 })
