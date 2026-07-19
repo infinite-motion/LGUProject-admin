@@ -1,6 +1,9 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import compression from 'compression';
 import * as dns from 'dns';
 
 // Force Node.js to use IPv4 over IPv6. Node 17+ prefers IPv6, which breaks Render's SMTP networking.
@@ -11,6 +14,22 @@ async function bootstrap() {
   
   // 1. Enable Cookie Parsing
   app.use(cookieParser());
+
+  // Security: HTTP Headers (adjust CSP for GraphQL Playground in dev)
+  app.use(helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+    crossOriginEmbedderPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  }));
+
+  // Performance: Response Compression
+  app.use(compression());
+
+  // Validation: Global Validation Pipe
+  app.useGlobalPipes(new ValidationPipe({ 
+    whitelist: true, 
+    forbidNonWhitelisted: true,
+    transform: true 
+  }));
   
   // 2. Enable CORS specifically for the frontend
   const allowedOrigins = process.env.NODE_ENV === 'production' 
