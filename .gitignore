@@ -10,3 +10,6 @@ package-lock.json
 
 # Local scripts
 test-admin.ps1
+
+# Local editor settings
+.vscode/settings.json
