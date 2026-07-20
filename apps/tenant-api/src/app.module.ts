@@ -6,6 +6,8 @@ import { AppResolver } from './app.resolver';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { StaffModule } from './modules/staff/staff.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AdminApiModule } from './modules/admin-api/admin-api.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { StaffModule } from './modules/staff/staff.module';
     }),
     AuthModule,
     StaffModule,
+    ScheduleModule.forRoot(),
+    AdminApiModule,
   ],
   providers: [AppResolver, AppService],
 })

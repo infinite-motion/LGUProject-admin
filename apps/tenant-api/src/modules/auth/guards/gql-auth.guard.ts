@@ -33,11 +33,18 @@ export class GqlAuthGuard extends AuthGuard('jwt') {
     const req = this.getRequest(context) as { user: JwtUser };
     const user = await this.prisma.staffUser.findUnique({
       where: { id: req.user.userId },
+      include: { org: true },
     });
 
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException(
         'Account is suspended or no longer exists',
+      );
+    }
+
+    if (user.org && user.org.status !== 'active') {
+      throw new UnauthorizedException(
+        'Organization account is currently suspended',
       );
     }
 
