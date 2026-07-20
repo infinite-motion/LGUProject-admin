@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import Fuse from "fuse.js";
 import { format } from "date-fns";
 import { fetchApi } from "@/services/apiClient";
 import {
@@ -14,7 +15,9 @@ import {
   ShieldCheck,
   Key,
   Copy,
-  CheckCircle2
+  CheckCircle2,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import toast from "react-hot-toast";
@@ -29,17 +32,26 @@ interface Tenant {
   createdAt: string;
 }
 
+const psgcCache: Record<string, any[]> = {};
+
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
-  const [confirmState, setConfirmState] = useState<{ isOpen: boolean; idToSuspend: string | null }>({
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    idToSuspend: string | null;
+  }>({
     isOpen: false,
     idToSuspend: null,
   });
-  const [newKeyModal, setNewKeyModal] = useState<{ isOpen: boolean; orgName: string; regKey: string }>({
+  const [newKeyModal, setNewKeyModal] = useState<{
+    isOpen: boolean;
+    orgName: string;
+    regKey: string;
+  }>({
     isOpen: false,
     orgName: "",
     regKey: "",
@@ -51,6 +63,91 @@ export default function TenantsPage() {
     level: "municipality",
     sysAdminEmail: "",
   });
+
+  const [psgcOptions, setPsgcOptions] = useState<any[]>([]);
+  const [psgcLoading, setPsgcLoading] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [isEditingCode, setIsEditingCode] = useState(false);
+  const [draftCode, setDraftCode] = useState("");
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    
+    let isMounted = true;
+    const fetchPsgc = async () => {
+      setPsgcLoading(true);
+      try {
+        let endpoint = "";
+        if (formData.level === "province") endpoint = "/provinces";
+        else if (formData.level === "city" || formData.level === "municipality") endpoint = "/cities-municipalities";
+        
+        if (!endpoint) return;
+        
+        if (psgcCache[endpoint]) {
+          if (isMounted) setPsgcOptions(psgcCache[endpoint]);
+        } else {
+          const res = await fetch(`https://psgc.cloud/api/v2${endpoint}`, {
+            headers: { 'Accept': 'application/json' }
+          });
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          
+          const json = await res.json();
+          const data = Array.isArray(json) ? json : (json.data || []);
+          
+          if (formData.level === "city") {
+             // Optional: Filter for cities if we want to be strict, but keeping both is fine for search
+             psgcCache[endpoint] = data;
+          } else {
+             psgcCache[endpoint] = data;
+          }
+          
+          if (isMounted) setPsgcOptions(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch PSGC data", err);
+        if (isMounted) setPsgcOptions([]);
+      } finally {
+        if (isMounted) setPsgcLoading(false);
+      }
+    };
+    
+    fetchPsgc();
+    
+    return () => { isMounted = false; };
+  }, [formData.level, isModalOpen]);
+
+  const fuse = useMemo(
+    () =>
+      new Fuse(psgcOptions, {
+        keys: ["name"],
+        threshold: 0.3,
+      }),
+    [psgcOptions],
+  );
+
+  const searchResults = useMemo(() => {
+    return formData.name
+      ? fuse
+          .search(formData.name)
+          .map((res) => res.item)
+          .slice(0, 50)
+      : psgcOptions.slice(0, 50);
+  }, [formData.name, fuse, psgcOptions]);
 
   const loadTenants = async () => {
     setLoading(true);
@@ -70,6 +167,13 @@ export default function TenantsPage() {
 
   const handleAddTenant = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const existing = tenants.find(t => t.code === formData.code);
+    if (existing) {
+      toast.error(`The organization with code ${formData.code} is already registered!`);
+      return;
+    }
+    
     setFormLoading(true);
     try {
       const response = await fetchApi<Tenant>("/tenants", {
@@ -77,14 +181,19 @@ export default function TenantsPage() {
         body: JSON.stringify(formData),
       });
       setIsModalOpen(false);
-      setFormData({ code: "", name: "", level: "municipality", sysAdminEmail: "" });
-      
+      setFormData({
+        code: "",
+        name: "",
+        level: "municipality",
+        sysAdminEmail: "",
+      });
+
       // Show the generated registration key modal
       if (response.registrationKey) {
         setNewKeyModal({
           isOpen: true,
           orgName: response.name,
-          regKey: response.registrationKey
+          regKey: response.registrationKey,
         });
       }
 
@@ -104,7 +213,9 @@ export default function TenantsPage() {
   const handleSuspendConfirm = async () => {
     if (!confirmState.idToSuspend) return;
     try {
-      await fetchApi(`/tenants/${confirmState.idToSuspend}/suspend`, { method: "PUT" });
+      await fetchApi(`/tenants/${confirmState.idToSuspend}/suspend`, {
+        method: "PUT",
+      });
       setConfirmState({ isOpen: false, idToSuspend: null });
       loadTenants();
       toast.success("Tenant suspended successfully!");
@@ -120,9 +231,10 @@ export default function TenantsPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const filteredTenants = tenants.filter(t => 
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    t.code.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTenants = tenants.filter(
+    (t) =>
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.code.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -137,7 +249,17 @@ export default function TenantsPage() {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setFormData({
+              code: "",
+              name: "",
+              level: "municipality",
+              sysAdminEmail: "",
+            });
+            setIsEditingCode(false);
+            setDraftCode("");
+            setIsModalOpen(true);
+          }}
           className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -175,25 +297,44 @@ export default function TenantsPage() {
           <table className="min-w-full divide-y divide-text-secondary/10">
             <thead className="bg-background/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Organization</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Level</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Registration Key</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Registered</th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Organization
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Level
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Registration Key
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Registered
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-text-secondary/10">
               {filteredTenants.map((t) => (
-                <tr key={t.id} className="hover:bg-background/50 transition-colors group">
+                <tr
+                  key={t.id}
+                  className="hover:bg-background/50 transition-colors group"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3 font-bold uppercase">
                         {t.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-foreground">{t.name}</div>
-                        <div className="text-xs text-text-secondary">Code: {t.code}</div>
+                        <div className="text-sm font-bold text-foreground">
+                          {t.name}
+                        </div>
+                        <div className="text-xs text-text-secondary">
+                          Code: {t.code}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -203,7 +344,7 @@ export default function TenantsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {t.status === 'active' ? (
+                    {t.status === "active" ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
                         Active
                       </span>
@@ -216,7 +357,10 @@ export default function TenantsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {t.registrationKey ? (
                       <div className="flex items-center space-x-2">
-                        <code className="text-xs font-mono bg-background px-2 py-1 rounded border border-text-secondary/20 text-text-secondary w-32 truncate" title={t.registrationKey}>
+                        <code
+                          className="text-xs font-mono bg-background px-2 py-1 rounded border border-text-secondary/20 text-text-secondary w-32 truncate"
+                          title={t.registrationKey}
+                        >
                           {t.registrationKey}
                         </code>
                         <button
@@ -232,14 +376,16 @@ export default function TenantsPage() {
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-text-secondary italic">Not available</span>
+                      <span className="text-xs text-text-secondary italic">
+                        Not available
+                      </span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                     {format(new Date(t.createdAt), "MMM d, yyyy")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    {t.status === 'active' && (
+                    {t.status === "active" && (
                       <button
                         onClick={() => handleSuspendClick(t.id)}
                         className="text-xs text-red-600 hover:text-red-800 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
@@ -270,59 +416,160 @@ export default function TenantsPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddTenant} className="p-6 space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">Organization Name</label>
-                <input
-                  required
-                  type="text"
-                  placeholder="e.g. City of San Juan"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-text-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">Organization Code</label>
-                <input
-                  required
-                  type="text"
-                  placeholder="e.g. sanjuan"
-                  value={formData.code}
-                  onChange={(e) => setFormData({...formData, code: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')})}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-text-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                <p className="text-xs text-text-secondary">Unique identifier. Alphanumeric only, no spaces.</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">Level</label>
+                <label className="text-sm font-semibold text-foreground">
+                  Level
+                </label>
                 <select
                   value={formData.level}
-                  onChange={(e) => setFormData({...formData, level: e.target.value})}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      level: e.target.value,
+                      name: "",
+                      code: "",
+                    });
+                  }}
                   className="w-full px-3 py-2 rounded-lg bg-background border border-text-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="province">Province</option>
                   <option value="city">City</option>
                   <option value="municipality">Municipality</option>
-                  <option value="barangay">Barangay</option>
                 </select>
               </div>
-              
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Organization Name (Place)
+                </label>
+                <div className="relative" ref={dropdownRef}>
+                  <input
+                    required
+                    type="text"
+                    placeholder={`Enter ${formData.level} name...`}
+                    value={formData.name}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      setIsDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-text-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  {psgcLoading && (
+                    <div className="absolute right-3 top-2.5">
+                      <Loader2 className="w-5 h-5 animate-spin text-text-secondary" />
+                    </div>
+                  )}
+                  {isDropdownOpen && searchResults.length > 0 && formData.name.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-background border border-text-secondary/20 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {searchResults.map((item) => (
+                        <div
+                          key={item.code}
+                          className="px-3 py-2 hover:bg-primary/10 cursor-pointer text-sm border-b border-text-secondary/10 last:border-0"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              name: item.name,
+                              code: item.code,
+                            });
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          <div className="font-semibold text-foreground">
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-text-secondary mt-0.5">
+                            {formData.level === "province" && item.region}
+                            {(formData.level === "city" ||
+                              formData.level === "municipality") &&
+                              `${item.type || formData.level}, ${item.province || item.region}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Organization Code (or PSGC Code)
+                </label>
+                <div className="relative">
+                  <input
+                    required
+                    readOnly={!isEditingCode}
+                    type="text"
+                    placeholder="Enter unique code"
+                    value={isEditingCode ? draftCode : formData.code}
+                    onChange={(e) => {
+                      if (isEditingCode) setDraftCode(e.target.value);
+                      else setFormData({ ...formData, code: e.target.value });
+                    }}
+                    className={`w-full px-3 py-2 pr-20 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                      isEditingCode 
+                        ? "bg-background border-primary text-foreground" 
+                        : "bg-background/50 border-text-secondary/20 text-text-secondary"
+                    }`}
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                    {isEditingCode ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, code: draftCode });
+                            setIsEditingCode(false);
+                          }}
+                          className="p-1 text-emerald-600 hover:bg-emerald-100 rounded transition-colors"
+                          title="Save"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingCode(false)}
+                          className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                          title="Cancel"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftCode(formData.code);
+                          setIsEditingCode(true);
+                        }}
+                        className="p-1 text-text-secondary hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                        title="Edit Code"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-4 mt-4 border-t border-text-secondary/10 space-y-2">
                 <label className="text-sm font-semibold text-foreground flex items-center">
                   <ShieldCheck className="w-4 h-4 mr-1.5 text-primary" />
                   Initial SysAdmin Account
                 </label>
                 <p className="text-xs text-text-secondary mb-2">
-                  This user will be authorized to appoint staff and configure the LGU system.
+                  This user will be authorized to appoint staff and configure
+                  the LGU system.
                 </p>
                 <input
                   required
                   type="email"
                   placeholder="sysadmin@sanjuan.gov.ph"
                   value={formData.sysAdminEmail}
-                  onChange={(e) => setFormData({...formData, sysAdminEmail: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, sysAdminEmail: e.target.value })
+                  }
                   className="w-full px-3 py-2 rounded-lg bg-background border border-text-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
@@ -340,7 +587,9 @@ export default function TenantsPage() {
                   disabled={formLoading}
                   className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
                 >
-                  {formLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {formLoading && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
                   Register Organization
                 </button>
               </div>
@@ -357,12 +606,16 @@ export default function TenantsPage() {
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Key className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-2">Registration Key</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-2">
+                Registration Key
+              </h3>
               <p className="text-text-secondary text-sm mb-6">
-                You have successfully registered <strong>{newKeyModal.orgName}</strong>. 
-                Please provide this Registration Key to their System Administrator for initial platform setup.
+                You have successfully registered{" "}
+                <strong>{newKeyModal.orgName}</strong>. Please provide this
+                Registration Key to their System Administrator for initial
+                platform setup.
               </p>
-              
+
               <div className="bg-background border border-text-secondary/20 rounded-xl p-4 flex items-center justify-between mb-6">
                 <code className="text-sm font-mono text-foreground font-semibold tracking-wide break-all text-left">
                   {newKeyModal.regKey}
@@ -381,7 +634,9 @@ export default function TenantsPage() {
               </div>
 
               <button
-                onClick={() => setNewKeyModal({ isOpen: false, orgName: "", regKey: "" })}
+                onClick={() =>
+                  setNewKeyModal({ isOpen: false, orgName: "", regKey: "" })
+                }
                 className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
               >
                 Done

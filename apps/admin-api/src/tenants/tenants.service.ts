@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
@@ -19,7 +19,7 @@ export class TenantsService {
     // Check if code exists
     const existing = await this.prisma.lguTenant.findUnique({ where: { code: data.code } });
     if (existing) {
-      throw new Error(`Tenant with code ${data.code} already exists`);
+      throw new ConflictException(`Tenant with code ${data.code} already exists`);
     }
 
     const crypto = require('crypto');
