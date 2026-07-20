@@ -1,9 +1,11 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name);
+
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
@@ -59,6 +61,11 @@ export class TenantsService {
         `Registered new tenant organization: ${data.name} (${data.level}). Appointed sysadmin: ${data.sysAdminEmail}`,
       );
     }
+
+    const setupLink = `${process.env.TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?key=${registrationKey}`;
+    this.logger.log(
+      `[No Email Service yet, manually copy and paste setup link for sysadmin (${data.sysAdminEmail})]: ${setupLink}`,
+    );
 
     return tenant;
   }
@@ -120,5 +127,32 @@ export class TenantsService {
     }
 
     return result;
+  }
+
+  async verifyRegistrationKey(registrationKey: string) {
+    const tenant = await this.prisma.lguTenant.findUnique({
+      where: { registrationKey },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        level: true,
+        status: true,
+      }
+    });
+
+    if (!tenant) {
+      return { valid: false, reason: 'NOT_FOUND' };
+    }
+
+    if (tenant.status !== 'active') {
+      return { valid: false, reason: 'SUSPENDED', tenant };
+    }
+
+    const onboardingRequest = await this.prisma.onboardingRequest.findUnique({
+      where: { orgCode: tenant.code },
+    });
+
+    return { valid: true, tenant, expectedEmail: onboardingRequest?.sysAdminEmail };
   }
 }
