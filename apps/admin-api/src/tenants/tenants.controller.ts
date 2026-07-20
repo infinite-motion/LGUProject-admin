@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  Param,
+  Put,
+  Delete,
+} from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -32,4 +42,3 @@ export class TenantsController {
     return this.tenantsService.deleteTenant(id, req.user);
   }
 }
-

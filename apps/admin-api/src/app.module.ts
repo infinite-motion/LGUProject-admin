@@ -16,10 +16,12 @@ import { TenantsModule } from './tenants/tenants.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 100, // 100 requests per minute
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -33,12 +35,12 @@ import { TenantsModule } from './tenants/tenants.module';
     TenantsModule,
   ],
   providers: [
-    AppResolver, 
+    AppResolver,
     AppService,
     {
       provide: APP_GUARD,
       useClass: GqlThrottlerGuard,
-    }
+    },
   ],
 })
 export class AppModule {}

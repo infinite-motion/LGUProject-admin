@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Body, Delete, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Delete,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AdminsService } from './admins.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { Request } from 'express';
@@ -15,7 +25,10 @@ export class AdminsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('invite')
-  async inviteAdmin(@Body() body: { email: string; fullName: string }, @Req() req: Request) {
+  async inviteAdmin(
+    @Body() body: { email: string; fullName: string },
+    @Req() req: Request,
+  ) {
     const user = req['user'] as any;
     return this.adminsService.inviteAdmin(body, user);
   }
@@ -56,7 +69,11 @@ export class AdminsController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  async updateAdmin(@Param('id') id: string, @Body() body: any, @Req() req: Request) {
+  async updateAdmin(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: Request,
+  ) {
     return this.adminsService.updateAdmin(id, body, req['user']);
   }
 }

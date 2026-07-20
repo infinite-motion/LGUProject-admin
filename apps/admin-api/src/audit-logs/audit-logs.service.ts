@@ -11,14 +11,14 @@ export class AuditLogsService {
         actorId,
         action,
         details,
-      }
+      },
     });
   }
 
   async findAll() {
     return this.prisma.superAdminAuditLog.findMany({
       include: {
-        actor: { select: { fullName: true, email: true, role: true } }
+        actor: { select: { fullName: true, email: true, role: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 200,

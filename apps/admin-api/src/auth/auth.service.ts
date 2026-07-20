@@ -20,15 +20,13 @@ export class AuthService {
     }
 
     if (!admin.passwordHash) {
-      throw new UnauthorizedException("Account not fully set up");
+      throw new UnauthorizedException('Account not fully set up');
     }
 
     const isMatch = await bcrypt.compare(pass, admin.passwordHash);
     if (!isMatch) {
-      throw new UnauthorizedException("Incorrect password");
+      throw new UnauthorizedException('Incorrect password');
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...result } = admin;
     return result;
   }

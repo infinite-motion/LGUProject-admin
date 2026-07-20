@@ -12,23 +12,32 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
 
-  app.use(helmet({
-    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
-    crossOriginEmbedderPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy:
+        process.env.NODE_ENV === 'production' ? undefined : false,
+      crossOriginEmbedderPolicy:
+        process.env.NODE_ENV === 'production' ? undefined : false,
+    }),
+  );
 
   app.use(compression());
 
-  // Validation: Global Validation Pipe
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
-  const allowedOrigins = process.env.NODE_ENV === 'production'
-    ? [process.env.FRONTEND_URL as string]
-    : [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://192.168.100.28:3000'];
+  const allowedOrigins =
+    process.env.NODE_ENV === 'production'
+      ? [process.env.FRONTEND_URL as string]
+      : [
+          process.env.FRONTEND_URL || 'http://localhost:3000',
+          'http://192.168.100.28:3000',
+        ];
 
   app.enableCors({
     origin: allowedOrigins,
