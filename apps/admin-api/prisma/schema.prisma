@@ -37,6 +37,7 @@ model SuperAdmin {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   auditLogs    SuperAdminAuditLog[]
+  refreshTokens RefreshToken[]
 }
 
 model LguTenant {
@@ -63,4 +64,16 @@ model SuperAdminAuditLog {
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime   @default(now())
+}
+
+model RefreshToken {
+  id          String     @id @default(uuid())
+  tokenHash   String     @unique
+  familyId    String
+  isRevoked   Boolean    @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime   @default(now())
+
+  adminId     String
+  admin       SuperAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
 }
