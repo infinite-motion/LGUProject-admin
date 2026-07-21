@@ -29,6 +29,7 @@ interface Tenant {
   level: string;
   status: string;
   registrationKey?: string;
+  sysAdminEmail?: string;
   createdAt: string;
 }
 
@@ -36,8 +37,12 @@ const psgcCache: Record<string, any[]> = {};
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -258,9 +263,19 @@ export default function TenantsPage() {
       t.code.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
+  const paginatedTenants = filteredTenants.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   return (
-    <div className="p-8 max-w-7xl mx-auto relative">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+    <div className="p-8 h-full flex flex-col relative w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Tenant Organizations
@@ -303,7 +318,7 @@ export default function TenantsPage() {
         </div>
       </div>
 
-      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm min-h-[300px]">
+      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm flex-1 flex flex-col min-h-0">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-12 text-text-secondary">
             <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
@@ -315,38 +330,38 @@ export default function TenantsPage() {
             <p>No LGU tenants found.</p>
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-text-secondary/10">
+          <table className="min-w-full h-full divide-y divide-text-secondary/10">
             <thead className="bg-background/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Organization
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Level
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                  Registration / Setup
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  SysAdmin
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Registered
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-text-secondary/10">
-              {filteredTenants.map((t) => (
+              {paginatedTenants.map((t) => (
                 <tr
                   key={t.id}
-                  className="hover:bg-background/50 transition-colors group"
+                  className="hover:bg-background/50 transition-colors group h-[10%]"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-2 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3 font-bold uppercase">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3 font-bold uppercase">
                         {t.name.charAt(0)}
                       </div>
                       <div>
@@ -359,12 +374,12 @@ export default function TenantsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-2 whitespace-nowrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 capitalize">
                       {t.level}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-2 whitespace-nowrap">
                     {t.status === "active" ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
                         Active
@@ -379,83 +394,61 @@ export default function TenantsPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {t.registrationKey ? (
-                      <div className="flex flex-col space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <code
-                            className="text-xs font-mono bg-background px-2 py-1 rounded border border-text-secondary/20 text-text-secondary w-32 truncate"
-                            title={t.registrationKey}
-                          >
-                            {t.registrationKey}
-                          </code>
-                          <button
-                            onClick={() => copyToClipboard(t.registrationKey!)}
-                            className="p-1 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
-                            title="Copy Key"
-                          >
-                            {copiedKey === t.registrationKey ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                        <div className="flex items-center">
-                          <button
-                            onClick={() => {
-                              const link = `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${t.registrationKey}`;
-                              copyToClipboard(link);
-                            }}
-                            className="text-[10px] text-primary hover:underline flex items-center font-medium"
-                            title="Copy Setup Link"
-                          >
-                            {copiedKey === `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${t.registrationKey}` ? (
-                              <span className="flex items-center text-emerald-500"><CheckCircle2 className="w-3 h-3 mr-1" /> Copied Setup Link</span>
-                            ) : (
-                              <span className="flex items-center"><Copy className="w-3 h-3 mr-1" /> Copy Setup Link</span>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-text-secondary italic">
-                        Not available
-                      </span>
-                    )}
+                  <td className="px-6 py-2 whitespace-nowrap">
+                    <span className="text-sm text-foreground flex items-center">
+                      <ShieldCheck className="w-4 h-4 mr-1.5 text-text-secondary" />
+                      {t.sysAdminEmail || "—"}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                  <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                     {format(new Date(t.createdAt), "MMM d, yyyy")}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                    {t.status === "active" || t.status === "pending_setup" ? (
-                      <button
-                        onClick={() => handleActionClick(t.id, 'suspend')}
-                        className="text-xs text-red-600 hover:text-red-800 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        Suspend
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleActionClick(t.id, 'activate')}
-                          className="text-xs text-emerald-600 hover:text-emerald-800 font-medium px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition-colors"
-                        >
-                          Restore
-                        </button>
-                        <button
-                          onClick={() => handleActionClick(t.id, 'delete')}
-                          className="text-xs text-zinc-600 hover:text-red-800 font-medium px-3 py-1.5 rounded-lg hover:bg-zinc-100 hover:text-red-600 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
+                  <td className="px-6 py-2 whitespace-nowrap text-right space-x-2">
+                    <button
+                      onClick={() => setSelectedTenant(t)}
+                      className="inline-flex items-center text-xs font-medium bg-primary/10 text-primary hover:bg-primary hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Manage
+                    </button>
                   </td>
                 </tr>
               ))}
-            </tbody>
+            
+                
+                {/* Empty rows to stretch table height evenly */}
+                {Array.from({ length: Math.max(0, itemsPerPage - paginatedTenants.length) }).map((_, index) => (
+                  <tr key={`empty-${index}`} className="hover:bg-transparent h-[10%]">
+                    <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
+                      -
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
           </table>
+        )}
+        
+        {!loading && filteredTenants.length > 0 && (
+          <div className="px-6 py-4 border-t border-text-secondary/10 flex items-center justify-between bg-background/30 mt-auto">
+            <div className="text-sm text-text-secondary">
+              Showing <span className="font-medium text-foreground">{Math.min(filteredTenants.length, (currentPage - 1) * itemsPerPage + 1)}</span> to <span className="font-medium text-foreground">{Math.min(filteredTenants.length, currentPage * itemsPerPage)}</span> of <span className="font-medium text-foreground">{filteredTenants.length}</span> results
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -756,6 +749,159 @@ export default function TenantsPage() {
         cancelText="Cancel"
         isDestructive={confirmState.action === 'suspend' || confirmState.action === 'delete'}
       />
+      {/* Side Drawer Overlay */}
+      {selectedTenant && (
+        <div 
+          className="fixed inset-0 z-50 flex justify-end bg-background/50 backdrop-blur-sm transition-all"
+          onClick={() => setSelectedTenant(null)}
+        >
+          <div 
+            className="w-full max-w-md bg-surface border-l border-text-secondary/10 shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-text-secondary/10 flex justify-between items-center bg-background/50">
+              <h2 className="text-xl font-bold text-foreground flex items-center">
+                <Building2 className="w-5 h-5 mr-2 text-primary" />
+                Tenant Details
+              </h2>
+              <button
+                onClick={() => setSelectedTenant(null)}
+                className="p-2 text-text-secondary hover:text-foreground rounded-full hover:bg-background transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              {/* Org Details */}
+              <section>
+                <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Organization Profile</h3>
+                <div className="bg-background rounded-xl p-4 border border-text-secondary/10 space-y-4 shadow-sm">
+                  <div>
+                    <div className="text-xs text-text-secondary mb-1">Name</div>
+                    <div className="font-semibold text-foreground">{selectedTenant.name}</div>
+                  </div>
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-xs text-text-secondary mb-1">Code / PSGC</div>
+                      <div className="font-medium text-foreground">{selectedTenant.code}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-text-secondary mb-1">Level</div>
+                      <div className="font-medium text-foreground capitalize">{selectedTenant.level}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-secondary mb-1">Registered On</div>
+                    <div className="font-medium text-foreground">{format(new Date(selectedTenant.createdAt), "MMMM d, yyyy")}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-secondary mb-1">Status</div>
+                    <div className="mt-1">
+                      {selectedTenant.status === "active" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">Active</span>
+                      ) : selectedTenant.status === "pending_setup" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">Pending Setup</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">Suspended</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* SysAdmin Details */}
+              <section>
+                <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">System Administrator</h3>
+                <div className="bg-background rounded-xl p-4 border border-text-secondary/10 space-y-4 shadow-sm">
+                  <div>
+                    <div className="text-xs text-text-secondary mb-1">Appointed Email</div>
+                    <div className="font-medium text-foreground flex items-center">
+                      <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
+                      {selectedTenant.sysAdminEmail || "Not specified"}
+                    </div>
+                  </div>
+
+                  {selectedTenant.status === "pending_setup" && selectedTenant.registrationKey && (
+                    <div className="border-t border-text-secondary/10 pt-4 mt-4">
+                      <div className="text-xs text-amber-600 font-medium mb-3 flex items-center">
+                        <Activity className="w-4 h-4 mr-1.5" />
+                        Pending Initial Setup
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs text-text-secondary mb-1">Registration Key</div>
+                          <div className="flex items-center justify-between bg-surface p-2 rounded border border-text-secondary/10">
+                            <code className="text-xs font-mono text-foreground truncate w-48">{selectedTenant.registrationKey}</code>
+                            <button
+                              onClick={() => copyToClipboard(selectedTenant.registrationKey!)}
+                              className="p-1.5 text-text-secondary hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                            >
+                              {copiedKey === selectedTenant.registrationKey ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="text-xs text-text-secondary mb-1">Direct Setup Link</div>
+                          <button
+                            onClick={() => {
+                              const link = `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${selectedTenant.registrationKey}`;
+                              copyToClipboard(link);
+                            }}
+                            className="w-full flex items-center justify-center px-3 py-2 bg-primary/10 text-primary text-xs font-medium rounded-lg hover:bg-primary/20 transition-colors"
+                          >
+                            {copiedKey === `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${selectedTenant.registrationKey}` ? (
+                              <><CheckCircle2 className="w-4 h-4 mr-1.5" /> Copied to Clipboard</>
+                            ) : (
+                              <><Copy className="w-4 h-4 mr-1.5" /> Copy Setup Link</>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="p-6 border-t border-text-secondary/10 bg-background/50 space-y-3">
+              {selectedTenant.status === "active" || selectedTenant.status === "pending_setup" ? (
+                <button
+                  onClick={() => {
+                    handleActionClick(selectedTenant.id, 'suspend');
+                    setSelectedTenant(null);
+                  }}
+                  className="w-full py-2.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-medium rounded-xl transition-colors text-sm"
+                >
+                  Suspend Organization
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    handleActionClick(selectedTenant.id, 'activate');
+                    setSelectedTenant(null);
+                  }}
+                  className="w-full py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 font-medium rounded-xl transition-colors text-sm"
+                >
+                  Restore Organization
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  handleActionClick(selectedTenant.id, 'delete');
+                  setSelectedTenant(null);
+                }}
+                className="w-full py-2.5 bg-transparent border border-red-200 text-red-600 hover:bg-red-50 font-medium rounded-xl transition-colors text-sm"
+              >
+                Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

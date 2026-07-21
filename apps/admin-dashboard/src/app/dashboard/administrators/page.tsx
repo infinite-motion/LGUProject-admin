@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Search,
@@ -31,6 +31,10 @@ export default function AdministratorsPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({
@@ -223,10 +227,26 @@ export default function AdministratorsPage() {
     return <Shield className="w-4 h-4 text-text-secondary mr-1.5" />;
   };
 
+  const filteredAdmins = admins.filter(
+    (a) =>
+      a.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.email.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const totalPages = Math.ceil(filteredAdmins.length / itemsPerPage);
+  const paginatedAdmins = filteredAdmins.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-8 h-full flex flex-col relative w-full">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Administrator Management
@@ -275,8 +295,8 @@ export default function AdministratorsPage() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm">
-        <table className="min-w-full divide-y divide-text-secondary/10">
+      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm flex-1 flex flex-col min-h-0">
+        <table className="min-w-full h-full divide-y divide-text-secondary/10">
           <thead className="bg-background/50">
             <tr>
               <th
@@ -324,7 +344,7 @@ export default function AdministratorsPage() {
                   </p>
                 </td>
               </tr>
-            ) : admins.length === 0 ? (
+            ) : filteredAdmins.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
@@ -334,15 +354,7 @@ export default function AdministratorsPage() {
                 </td>
               </tr>
             ) : (
-              admins
-                .filter(
-                  (a) =>
-                    a.fullName
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase()) ||
-                    a.email.toLowerCase().includes(searchQuery.toLowerCase()),
-                )
-                .map((admin) => {
+              paginatedAdmins.map((admin) => {
                   const normalizedUserRole = currentUserRole?.toUpperCase() || "";
                   const normalizedTargetRole = admin.role?.toUpperCase() || "";
 
@@ -354,11 +366,11 @@ export default function AdministratorsPage() {
                   return (
                   <tr
                     key={admin.id}
-                    className="hover:bg-background/50 transition-colors group relative"
+                    className="hover:bg-background/50 transition-colors group relative h-[10%]"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-2 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
                           {admin.fullName.charAt(0)}
                         </div>
                         <div className="ml-4">
@@ -371,7 +383,7 @@ export default function AdministratorsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-2 whitespace-nowrap">
                       <div className="flex items-center">
                         {getRoleIcon(admin.role)}
                         <span
@@ -383,22 +395,22 @@ export default function AdministratorsPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-2 whitespace-nowrap">
                       {getStatusBadge(admin.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                       {admin.appointedByName || (
                         <span className="text-text-secondary/50">
                           — System —
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                       {admin.status === "ACTIVE"
                         ? new Date(admin.createdAt).toLocaleDateString()
                         : "—"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-2 whitespace-nowrap text-right text-sm font-medium">
                       {admin.status === "PENDING_APPROVAL" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
@@ -505,30 +517,43 @@ export default function AdministratorsPage() {
                 );
               })
             )}
-          </tbody>
+          
+                
+                {/* Empty rows to stretch table height evenly */}
+                {Array.from({ length: Math.max(0, itemsPerPage - paginatedAdmins.length) }).map((_, index) => (
+                  <tr key={`empty-${index}`} className="hover:bg-transparent h-[10%]">
+                    <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
+                      -
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
         </table>
 
-        {/* Pagination placeholder */}
-        <div className="px-6 py-4 border-t border-text-secondary/10 bg-background/30 flex items-center justify-between">
-          <span className="text-sm text-text-secondary">
-            Showing {admins.length > 0 ? 1 : 0} to {admins.length} of{" "}
-            {admins.length} entries
-          </span>
-          <div className="flex space-x-1">
-            <button
-              className="px-3 py-1 border border-text-secondary/20 rounded-md text-sm text-text-secondary hover:bg-surface disabled:opacity-50"
-              disabled
-            >
-              Previous
-            </button>
-            <button
-              className="px-3 py-1 border border-text-secondary/20 rounded-md text-sm text-text-secondary hover:bg-surface disabled:opacity-50"
-              disabled
-            >
-              Next
-            </button>
+        {/* Pagination */}
+        {!loading && filteredAdmins.length > 0 && (
+          <div className="px-6 py-4 border-t border-text-secondary/10 flex items-center justify-between bg-background/30 mt-auto">
+            <div className="text-sm text-text-secondary">
+              Showing <span className="font-medium text-foreground">{Math.min(filteredAdmins.length, (currentPage - 1) * itemsPerPage + 1)}</span> to <span className="font-medium text-foreground">{Math.min(filteredAdmins.length, currentPage * itemsPerPage)}</span> of <span className="font-medium text-foreground">{filteredAdmins.length}</span> results
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Invite Modal Overlay */}

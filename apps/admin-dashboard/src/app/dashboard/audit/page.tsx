@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { fetchApi } from "@/services/apiClient";
 import {
@@ -34,6 +34,9 @@ export default function AuditLogsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAction, setFilterAction] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
 
   const loadLogs = async () => {
     setLoading(true);
@@ -75,8 +78,18 @@ export default function AuditLogsPage() {
     return matchesSearch && matchesFilter;
   });
 
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const paginatedLogs = filteredLogs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterAction]);
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-8 h-full flex flex-col relative w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
@@ -128,7 +141,7 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
-      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm overflow-hidden">
+      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm flex-1 flex flex-col min-h-0">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-12 text-text-secondary">
             <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
@@ -140,51 +153,85 @@ export default function AuditLogsPage() {
             <p>No audit logs found matching your criteria.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-text-secondary/10">
+          <div className="overflow-x-auto flex-1 min-h-0">
+            <table className="min-w-full h-full divide-y divide-text-secondary/10">
               <thead className="bg-background/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                     Timestamp
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                     Actor
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                     Action
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                     Details
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-text-secondary/10">
-                {filteredLogs.map((log) => {
+                {paginatedLogs.map((log) => {
                   const { label, icon: ActionIcon, color } = getActionDetails(log.action);
                   return (
-                    <tr key={log.id} className="hover:bg-background/50 transition-colors group">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    <tr key={log.id} className="hover:bg-background/50 transition-colors group h-[10%]">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                         {format(new Date(log.createdAt), "MMM d, yyyy")}
                         <div className="text-xs opacity-70">{format(new Date(log.createdAt), "h:mm:ss a")}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-2 whitespace-nowrap">
                         <div className="text-sm font-medium text-foreground">{log.actor.fullName}</div>
                         <div className="text-xs text-text-secondary">{log.actor.email}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-2 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${color}`}>
                           <ActionIcon className="w-3 h-3 mr-1.5" />
                           {label}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-foreground max-w-md truncate" title={log.details}>
+                      <td className="px-6 py-2 text-sm text-foreground max-w-md truncate" title={log.details}>
                         {log.details}
                       </td>
                     </tr>
                   );
                 })}
+              
+                
+                {/* Empty rows to stretch table height evenly */}
+                {Array.from({ length: Math.max(0, itemsPerPage - paginatedLogs.length) }).map((_, index) => (
+                  <tr key={`empty-${index}`} className="hover:bg-transparent h-[10%]">
+                    <td colSpan={4} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
+                      -
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!loading && filteredLogs.length > 0 && (
+          <div className="px-6 py-4 border-t border-text-secondary/10 flex items-center justify-between bg-background/30 mt-auto">
+            <div className="text-sm text-text-secondary">
+              Showing <span className="font-medium text-foreground">{Math.min(filteredLogs.length, (currentPage - 1) * itemsPerPage + 1)}</span> to <span className="font-medium text-foreground">{Math.min(filteredLogs.length, currentPage * itemsPerPage)}</span> of <span className="font-medium text-foreground">{filteredLogs.length}</span> results
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
