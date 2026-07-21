@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "@/components/AppLogo";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -14,12 +15,16 @@ export default function SetupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isKeyFromUrl, setIsKeyFromUrl] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
-    // If a key is passed in the URL (e.g. /setup?key=123), auto-fill it
-    const key = searchParams.get("key");
+    // If a key is passed in the URL (e.g. /setup?registrationKey=123), auto-fill it
+    const key = searchParams.get("registrationKey") || searchParams.get("key");
     if (key) {
       setRegistrationKey(key);
+      setIsKeyFromUrl(true);
     }
   }, [searchParams]);
 
@@ -46,7 +51,6 @@ export default function SetupPage() {
           query: `
             mutation Onboard($input: OnboardInput!) {
               onboard(input: $input) {
-                accessToken
                 user {
                   id
                   email
@@ -115,7 +119,9 @@ export default function SetupPage() {
               className="login-input"
               placeholder="Enter your 36-character key"
               value={registrationKey}
-              onChange={(e) => setRegistrationKey(e.target.value)}
+              onChange={(e) => !isKeyFromUrl && setRegistrationKey(e.target.value)}
+              readOnly={isKeyFromUrl}
+              style={isKeyFromUrl ? { opacity: 0.7, cursor: "not-allowed", backgroundColor: "#f9fafb" } : {}}
               required
             />
           </div>
@@ -138,31 +144,69 @@ export default function SetupPage() {
             <label className="input-label" htmlFor="password">
               Create Password
             </label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              className="login-input"
-              placeholder="Enter your new password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                name="password"
+                className="login-input"
+                placeholder="Enter your new password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{ paddingRight: "40px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6b7280"
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <div className="input-group">
             <label className="input-label" htmlFor="confirmPassword">
               Confirm Password
             </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              name="confirmPassword"
-              className="login-input"
-              placeholder="Confirm your new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                className="login-input"
+                placeholder="Confirm your new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                style={{ paddingRight: "40px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6b7280"
+                }}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <button type="submit" className="primary-button login-button" disabled={loading} style={{ marginTop: "1rem" }}>
             {loading ? "Initializing..." : "Complete Setup"}
