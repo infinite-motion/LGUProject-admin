@@ -165,6 +165,18 @@ export default function TenantsPage() {
 
   useEffect(() => {
     loadTenants();
+
+    const intervalId = setInterval(() => {
+      fetchApi<Tenant[]>("/tenants")
+        .then((data) => {
+          setTenants((prev) =>
+            JSON.stringify(prev) !== JSON.stringify(data) ? data : prev,
+          );
+        })
+        .catch(console.error);
+    }, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleAddTenant = async (e: React.FormEvent) => {
@@ -316,7 +328,7 @@ export default function TenantsPage() {
                   Status
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                  Registration Key
+                  Registration / Setup
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Registered
@@ -357,6 +369,10 @@ export default function TenantsPage() {
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
                         Active
                       </span>
+                    ) : t.status === "pending_setup" ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                        Pending Setup
+                      </span>
                     ) : (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
                         Suspended
@@ -365,24 +381,42 @@ export default function TenantsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {t.registrationKey ? (
-                      <div className="flex items-center space-x-2">
-                        <code
-                          className="text-xs font-mono bg-background px-2 py-1 rounded border border-text-secondary/20 text-text-secondary w-32 truncate"
-                          title={t.registrationKey}
-                        >
-                          {t.registrationKey}
-                        </code>
-                        <button
-                          onClick={() => copyToClipboard(t.registrationKey!)}
-                          className="p-1.5 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
-                          title="Copy Key"
-                        >
-                          {copiedKey === t.registrationKey ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <code
+                            className="text-xs font-mono bg-background px-2 py-1 rounded border border-text-secondary/20 text-text-secondary w-32 truncate"
+                            title={t.registrationKey}
+                          >
+                            {t.registrationKey}
+                          </code>
+                          <button
+                            onClick={() => copyToClipboard(t.registrationKey!)}
+                            className="p-1 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                            title="Copy Key"
+                          >
+                            {copiedKey === t.registrationKey ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => {
+                              const link = `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${t.registrationKey}`;
+                              copyToClipboard(link);
+                            }}
+                            className="text-[10px] text-primary hover:underline flex items-center font-medium"
+                            title="Copy Setup Link"
+                          >
+                            {copiedKey === `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${t.registrationKey}` ? (
+                              <span className="flex items-center text-emerald-500"><CheckCircle2 className="w-3 h-3 mr-1" /> Copied Setup Link</span>
+                            ) : (
+                              <span className="flex items-center"><Copy className="w-3 h-3 mr-1" /> Copy Setup Link</span>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <span className="text-xs text-text-secondary italic">
@@ -394,7 +428,7 @@ export default function TenantsPage() {
                     {format(new Date(t.createdAt), "MMM d, yyyy")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                    {t.status === "active" ? (
+                    {t.status === "active" || t.status === "pending_setup" ? (
                       <button
                         onClick={() => handleActionClick(t.id, 'suspend')}
                         className="text-xs text-red-600 hover:text-red-800 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
@@ -640,21 +674,48 @@ export default function TenantsPage() {
                 platform setup.
               </p>
 
-              <div className="bg-background border border-text-secondary/20 rounded-xl p-4 flex items-center justify-between mb-6">
-                <code className="text-sm font-mono text-foreground font-semibold tracking-wide break-all text-left">
-                  {newKeyModal.regKey}
-                </code>
-                <button
-                  onClick={() => copyToClipboard(newKeyModal.regKey)}
-                  className="ml-4 p-2 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg transition-colors flex-shrink-0"
-                  title="Copy to clipboard"
-                >
-                  {copiedKey === newKeyModal.regKey ? (
-                    <CheckCircle2 className="w-5 h-5" />
-                  ) : (
-                    <Copy className="w-5 h-5" />
-                  )}
-                </button>
+              <div className="bg-background border border-text-secondary/20 rounded-xl p-4 flex flex-col space-y-4 mb-6">
+                <div>
+                  <div className="text-xs font-semibold text-text-secondary mb-1 text-left">Registration Key</div>
+                  <div className="flex items-center justify-between">
+                    <code className="text-sm font-mono text-foreground font-semibold tracking-wide break-all text-left">
+                      {newKeyModal.regKey}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(newKeyModal.regKey)}
+                      className="ml-4 p-2 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg transition-colors flex-shrink-0"
+                      title="Copy Key"
+                    >
+                      {copiedKey === newKeyModal.regKey ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <Copy className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="border-t border-text-secondary/10 pt-4">
+                  <div className="text-xs font-semibold text-text-secondary mb-1 text-left">Setup Link (for SysAdmin)</div>
+                  <div className="flex items-center justify-between">
+                    <code className="text-xs font-mono text-text-secondary truncate block w-full text-left mr-2" title={`${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${newKeyModal.regKey}`}>
+                      {`${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${newKeyModal.regKey}`}
+                    </code>
+                    <button
+                      onClick={() => {
+                        const link = `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${newKeyModal.regKey}`;
+                        copyToClipboard(link);
+                      }}
+                      className="ml-2 p-2 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg transition-colors flex-shrink-0"
+                      title="Copy Setup Link"
+                    >
+                      {copiedKey === `${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${newKeyModal.regKey}` ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <Copy className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <button
