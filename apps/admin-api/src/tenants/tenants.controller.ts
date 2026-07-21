@@ -8,6 +8,7 @@ import {
   Param,
   Put,
   Delete,
+  BadRequestException,
 } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -24,6 +25,12 @@ export class TenantsController {
 
   @Post()
   createTenant(@Body() body: any, @Request() req: any) {
+    if (!body.code || !body.code.trim()) {
+      throw new BadRequestException('Organization geographic code (PSGC) is strictly required.');
+    }
+    if (!body.sysAdminEmail || !body.sysAdminEmail.trim()) {
+      throw new BadRequestException('System Administrator email is strictly required.');
+    }
     return this.tenantsService.createTenant(body, req.user);
   }
 
