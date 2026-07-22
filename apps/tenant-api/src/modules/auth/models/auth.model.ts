@@ -8,8 +8,8 @@ export class AuthUser {
   @Field()
   email!: string;
 
-  @Field()
-  role!: string;
+  @Field(() => String, { nullable: true })
+  role!: string | null;
 
   @Field()
   orgCode!: string;
@@ -18,7 +18,7 @@ export class AuthUser {
 @ObjectType()
 export class LoginResponse {
   @Field(() => AuthUser)
-  user!: AuthUser;
+  user!: AuthUser;,
 }
 
 @ObjectType()
@@ -29,8 +29,8 @@ export class CurrentUser {
   @Field()
   email!: string;
 
-  @Field()
-  role!: string;
+  @Field(() => String, { nullable: true })
+  role!: string | null;
 
   @Field()
   orgCode!: string;
