@@ -3,6 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
+import { ModulePermission } from './models/auth.model';
+
+const ALL_MODULES = [
+  'profile', 'staff', 'roles',
+  'financial', 'hr', 'health', 'disaster', 'registry', 'assessment', 
+  'welfare', 'agriculture', 'planning', 'general-services', 'peace-safety', 
+  'economic-dev', 'engineering'
+];
 
 @Injectable()
 export class AuthService {
@@ -11,6 +19,20 @@ export class AuthService {
     private jwt: JwtService,
     private adminApiService: AdminApiService,
   ) {}
+
+  getPermissionsForRole(role: string | null): ModulePermission[] {
+    if (role === 'sysadmin') {
+      return ['profile', 'staff', 'roles'].map(module => ({
+        module,
+        create: true,
+        read: true,
+        update: true,
+        delete: true,
+      }));
+    }
+    // Future: fetch from database for custom roles
+    return [];
+  }
 
   async login(
     email: string,
@@ -68,10 +90,12 @@ export class AuthService {
     return {
       accessToken,
       user: {
-        id: user.id,
+        userId: user.id,
         email: user.email,
         role: user.baseRole,
         orgCode: user.orgCode,
+        departmentId: user.departmentId,
+        permissions: this.getPermissionsForRole(user.baseRole),
       },
     };
   }
@@ -103,12 +127,12 @@ export class AuthService {
     const tenantInfo = adminResponse.tenant;
 
     let org = await this.prisma.organization.findUnique({
-      where: { code: tenantInfo.code },
+      where: { code: tenantInfo.psgcCode },
     });
     if (!org) {
       org = await this.prisma.organization.create({
         data: {
-          code: tenantInfo.code,
+          code: tenantInfo.psgcCode,
           name: tenantInfo.name,
           level: tenantInfo.level,
           registrationKey,
@@ -143,6 +167,7 @@ export class AuthService {
         email,
         passwordHash,
         baseRole: 'sysadmin',
+        office: 'MISO',
         departmentId: dept.id,
       },
     });
@@ -173,10 +198,12 @@ export class AuthService {
     return {
       accessToken,
       user: {
-        id: user.id,
+        userId: user.id,
         email: user.email,
         role: user.baseRole,
         orgCode: user.orgCode,
+        departmentId: user.departmentId,
+        permissions: this.getPermissionsForRole(user.baseRole),
       },
     };
   }
