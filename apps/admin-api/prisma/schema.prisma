@@ -13,67 +13,139 @@ enum AdminRole {
 }
 
 enum AdminStatus {
-  PENDING_APPROVAL
-  INVITED
-  ACTIVE
-  REJECTED
-  SUSPENDED
+  invited
+  active
+  revoked
+}
+
+enum LguLevel {
+  region
+  province
+  city_huc
+  city_icc
+  city_component
+  municipality
+  barangay
+}
+
+enum CityClassification {
+  HUC
+  ICC
+  component_city
+}
+
+enum TenantStatus {
+  pending_setup
+  active
+  suspended
+  deleted
+}
+
+enum LicenseStatus {
+  active
+  revoked
+  expired
+}
+
+enum AuditAction {
+  login
+  login_failed
+  invite_admin
+  accept_invite
+  delete_admin
+  revoke_admin
+  register_tenant
+  suspend_tenant
+  activate_tenant
+  delete_tenant
+  reissue_license
+  revoke_license
+}
+
+enum AuditTargetType {
+  tenant
+  superadmin
+  license
+  session
 }
 
 model SuperAdmin {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  fullName     String
-  passwordHash String?
-  role         AdminRole @default(ADMIN)
-  status       AdminStatus @default(PENDING_APPROVAL)
-  inviteToken     String?   @unique
-  inviteExpiresAt DateTime?
+  id              String       @id @default(uuid()) @db.Uuid
+  email           String       @unique
+  fullName        String       @map("full_name")
+  passwordHash    String       @map("password_hash")
+  role            AdminRole
+  status          AdminStatus
+  appointedById   String?      @map("appointed_by_id") @db.Uuid
+  appointedBy     SuperAdmin?  @relation("AdminAppointee", fields: [appointedById], references: [id])
+  appointees      SuperAdmin[] @relation("AdminAppointee")
+  inviteTokenHash String?      @map("invite_token_hash")
+  inviteExpiresAt DateTime?    @map("invite_expires_at") @db.Timestamptz
+  revokedAt       DateTime?    @map("revoked_at") @db.Timestamptz
+  revokedById     String?      @map("revoked_by_id") @db.Uuid
+  revokedBy       SuperAdmin?  @relation("AdminRevoker", fields: [revokedById], references: [id])
+  revoked         SuperAdmin[] @relation("AdminRevoker")
+  lastLoginAt     DateTime?    @map("last_login_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
-  appointedById String?
-  appointedBy   SuperAdmin?  @relation("AdminAppointee", fields: [appointedById], references: [id])
-  appointees    SuperAdmin[] @relation("AdminAppointee")
-
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  auditLogs    SuperAdminAuditLog[]
-  refreshTokens RefreshToken[]
+  auditLogs       SuperAdminAuditLog[]
+  refreshTokens   RefreshToken[]
 }
 
 model LguTenant {
-  id           String    @id @default(uuid())
-  code         String    @unique // e.g., "taytay", "sanjuan"
-  name         String
-  level        String    // "province" | "city" | "municipality" | "barangay"
-  apiUrl       String?
-  status          String    @default("active") // "active" | "suspended" | "maintenance"
-  registrationKey String?   @unique
-  sysAdminEmail   String
-  createdAt       DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                  String             @id @default(uuid()) @db.Uuid
+  psgcCode            String             @unique @map("psgc_code")
+  psgcRelease         String?            @map("psgc_release")
+  name                String
+  level               LguLevel
+  cityClassification  CityClassification? @map("city_classification")
+  apiUrl              String?            @map("api_url")
+  status              TenantStatus       @default(pending_setup)
+  deletedAt           DateTime?          @map("deleted_at") @db.Timestamptz
+  sysadminEmail       String             @map("sysadmin_email")
+  sysadminVerifiedAt  DateTime?          @map("sysadmin_verified_at") @db.Timestamptz
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  licenses            License[]
 }
 
-
+model License {
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  tenant           LguTenant    @relation(fields: [tenantId], references: [id])
+  registrationKey  String       @unique @map("registration_key")
+  issuedAt         DateTime     @map("issued_at") @db.Timestamptz
+  expiresAt        DateTime?    @map("expires_at") @db.Timestamptz
+  status           LicenseStatus
+  revokedAt        DateTime?    @map("revoked_at") @db.Timestamptz
+  revokedReason    String?      @map("revoked_reason")
+}
 
 model SuperAdminAuditLog {
-  id         String     @id @default(uuid())
-  actorId    String
-  actor      SuperAdmin @relation(fields: [actorId], references: [id])
-  action     String     // e.g., "onboard_lgu", "suspend_lgu", "generate_license"
-  details    String?    // Detailed description of the action
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime   @default(now())
+  id          String         @id @default(uuid()) @db.Uuid
+  actorId     String         @map("actor_id") @db.Uuid
+  actor       SuperAdmin     @relation(fields: [actorId], references: [id])
+  action      AuditAction
+  targetType  AuditTargetType? @map("target_type")
+  targetId    String?        @map("target_id") @db.Uuid
+  metadata    Json?
+  ipAddress   String?        @map("ip_address") // Required for login/failed but prisma model level can be optional
+  userAgent   String?        @map("user_agent")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
 }
 
 model RefreshToken {
-  id          String     @id @default(uuid())
-  tokenHash   String     @unique
-  familyId    String
-  isRevoked   Boolean    @default(false)
-  expiresAt   DateTime
-  createdAt   DateTime   @default(now())
-
-  adminId     String
+  id          String     @id @default(uuid()) @db.Uuid
+  tokenHash   String     @unique @map("token_hash")
+  familyId    String     @map("family_id") @db.Uuid
+  adminId     String     @map("admin_id") @db.Uuid
   admin       SuperAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  isRevoked   Boolean    @default(false) @map("is_revoked")
+  revokedAt   DateTime?  @map("revoked_at") @db.Timestamptz
+  ipAddress   String?    @map("ip_address")
+  userAgent   String?    @map("user_agent")
+  expiresAt   DateTime   @map("expires_at") @db.Timestamptz
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz
 }

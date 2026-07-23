@@ -38,10 +38,8 @@ export class JwtAuthGuard implements CanActivate {
         throw new UnauthorizedException('Account no longer exists');
       }
 
-      if (admin.status !== 'ACTIVE' && admin.status !== 'PENDING_APPROVAL') {
-        if (admin.status === 'REJECTED' || admin.status === 'SUSPENDED') {
-          throw new UnauthorizedException('Account has been restricted');
-        }
+      if (admin.status === 'revoked') {
+        throw new UnauthorizedException('Account has been restricted');
       }
 
       // We're assigning the payload to the request object here

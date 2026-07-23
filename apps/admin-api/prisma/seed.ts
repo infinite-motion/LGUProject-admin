@@ -32,7 +32,6 @@ async function main() {
   if (process.env.NODE_ENV !== 'production') {
     console.log('Wiping all existing data for a clean slate...');
     await prisma.superAdminAuditLog.deleteMany();
-    await prisma.onboardingRequest.deleteMany();
     await prisma.lguTenant.deleteMany();
     await prisma.superAdmin.deleteMany();
   } else {
@@ -47,14 +46,14 @@ async function main() {
       passwordHash,
       fullName: 'Infinite Motion Xpress Admin',
       role: 'ROOT_SUPERADMIN',
-      status: 'ACTIVE',
+      status: 'active',
     },
     create: {
       email: adminEmail,
       passwordHash,
       fullName: 'Infinite Motion Xpress Admin',
       role: 'ROOT_SUPERADMIN',
-      status: 'ACTIVE',
+      status: 'active',
     },
   });
 

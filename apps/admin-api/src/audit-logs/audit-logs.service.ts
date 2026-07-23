@@ -1,16 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditAction, AuditTargetType } from '@prisma/client';
 
 @Injectable()
 export class AuditLogsService {
   constructor(private prisma: PrismaService) {}
 
-  async logAction(actorId: string, action: string, details?: string) {
+  async logAction(
+    actorId: string, 
+    action: AuditAction, 
+    targetType?: AuditTargetType,
+    targetId?: string,
+    metadata?: any
+  ) {
     return this.prisma.superAdminAuditLog.create({
       data: {
         actorId,
         action,
-        details,
+        targetType,
+        targetId,
+        metadata,
       },
     });
   }
@@ -25,3 +34,4 @@ export class AuditLogsService {
     });
   }
 }
+

@@ -95,7 +95,7 @@ export class AuthService {
 
     // Check if user is still valid
     const admin = tokenRecord.admin;
-    if (!admin || admin.status === 'REJECTED' || admin.status === 'SUSPENDED') {
+    if (!admin || admin.status === 'revoked') {
       throw new UnauthorizedException('Account has been restricted');
     }
 
