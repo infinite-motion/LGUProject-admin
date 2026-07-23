@@ -26,7 +26,7 @@ export class AdminsController {
   @UseGuards(JwtAuthGuard)
   @Post('invite')
   async inviteAdmin(
-    @Body() body: { email: string; fullName: string },
+    @Body() body: { email: string; fullName: string; role?: 'ADMIN' | 'ROOT_SUPERADMIN' },
     @Req() req: Request,
   ) {
     const user = req['user'] as any;

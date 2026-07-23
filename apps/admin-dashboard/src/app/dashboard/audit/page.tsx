@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { fetchApi } from "@/services/apiClient";
+import { formatAuditDetails } from "@/lib/formatAuditDetails";
 import {
   Search,
   Activity,
@@ -25,7 +26,7 @@ interface AuditLog {
     role: string;
   };
   action: string;
-  details: string;
+  metadata: any;
   createdAt: string;
 }
 
@@ -68,13 +69,14 @@ export default function AuditLogsPage() {
   };
 
   const filteredLogs = logs.filter(log => {
-    const matchesSearch = 
+    const detailsText = formatAuditDetails(log.action, log.metadata);
+    const matchesSearch =
       log.actor.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.actor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchQuery.toLowerCase());
-    
+      detailsText.toLowerCase().includes(searchQuery.toLowerCase());
+
     const matchesFilter = filterAction === "ALL" || log.action === filterAction;
-    
+
     return matchesSearch && matchesFilter;
   });
 
@@ -125,7 +127,7 @@ export default function AuditLogsPage() {
         <div className="flex items-center space-x-2">
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
-            <select 
+            <select
               value={filterAction}
               onChange={(e) => setFilterAction(e.target.value)}
               className="block w-full pl-10 pr-10 py-2 text-sm border border-text-secondary/20 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
@@ -161,7 +163,7 @@ export default function AuditLogsPage() {
                     Timestamp
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                    Actor
+                    Admin
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                     Action
@@ -190,14 +192,14 @@ export default function AuditLogsPage() {
                           {label}
                         </span>
                       </td>
-                      <td className="px-6 py-2 text-sm text-foreground max-w-md truncate" title={log.details}>
-                        {log.details}
+                      <td className="px-6 py-2 text-sm text-foreground max-w-md truncate" title={formatAuditDetails(log.action, log.metadata)}>
+                        {formatAuditDetails(log.action, log.metadata)}
                       </td>
                     </tr>
                   );
                 })}
-              
-                
+
+
                 {/* Empty rows to stretch table height evenly */}
                 {Array.from({ length: Math.max(0, itemsPerPage - paginatedLogs.length) }).map((_, index) => (
                   <tr key={`empty-${index}`} className="hover:bg-transparent">
